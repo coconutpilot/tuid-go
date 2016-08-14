@@ -2,6 +2,7 @@ package tuid
 
 import (
 	"fmt"
+	"time"
 )
 
 type tuidCtx struct {
@@ -86,5 +87,43 @@ func New(spec string) (*tuidCtx, error) {
 		}
 
 	}
+
+    // the min increment is the LSB of the nanosecond component
+    tuidGen.nsec_min_increment = ((tuidGen.nsec_mask ^ (tuidGen.nsec_mask - 1)) >> 1) + 1
+
 	return tuidGen, nil
+}
+
+func (ctx *tuidCtx) Gen() uint64 {
+	ctx.counter++
+	if ctx.counter > ctx.counter_max {
+		ctx.counter = 0
+
+		nsec := uint64(time.Now().UnixNano())
+
+		nsec <<= ctx.nsec_shift
+		if ctx.nsec >= nsec {
+			fmt.Printf("Collision, incrementing by %v\n", ctx.nsec_min_increment)
+			ctx.nsec += ctx.nsec_min_increment
+		} else {
+			ctx.nsec = nsec
+		}
+	}
+
+	tuid := ctx.nsec
+
+	counter := ctx.counter
+	counter <<= ctx.counter_shift
+	tuid |= counter
+
+	tuid |= ctx.id
+
+	//    uint64 rnd = xorshift64(&(ctx->random));
+	rnd := ctx.random
+
+	rnd &= ctx.random_mask
+	rnd <<= ctx.random_shift
+	tuid |= rnd
+
+	return tuid
 }
