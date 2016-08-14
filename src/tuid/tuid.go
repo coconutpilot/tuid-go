@@ -1,7 +1,7 @@
 package tuid
 
 import (
-	"log"
+	"fmt"
 )
 
 type tuid struct {
@@ -19,28 +19,72 @@ type tuid struct {
 	random_shift       uint8  /* XXX: turns out this is not needed */
 }
 
-//func init() {
-//	log.SetFlags(log.Ldate | log.Lmicroseconds | log.Lshortfile)
-//}
+func New(spec string) (*tuid, error) {
+	// XXX: temp logging
+	fmt.Printf("Decoding TUID spec: %s\n", spec)
 
-func (ctx *tuid) Init(spec string) {
-	log.Println("tuid.Init()")
+	ctx := &tuid{random: 0x5248c8561600f46d}
 
-	ctx.nsec_offset = 0
-	ctx.nsec = 0
-	ctx.nsec_mask = 0
-	ctx.nsec_shift = 0
+	bitpos := uint8(64)
 
-	ctx.id = 0
+	max := len(spec)
+	i := 0
 
-	ctx.counter = 0
-	ctx.counter_max = 0
-	ctx.counter_shift = 0
+	// this string parser is a direct translation from C which means
+	// it isn't idiomatic Go.  Undecided if I should rewrite it or
+	// keep the libraries as similar as possible ...
+	for i < max {
+		identifier := spec[i]
+		i++
 
-	ctx.random = 0x5248c8561600f46d
-	ctx.random_mask = 0
-	ctx.random_shift = 0
+		var value uint64
+		for i < max {
+			v := spec[i]
+			if v < '0' || v > '9' {
+				break
+			}
+			i++
+			value = value*10 + uint64(v-'0')
+		}
+		// XXX: temp logging
+		fmt.Printf("Key: %v Val: %v\n", string(identifier), value)
 
-	log.Printf("Decoding TUID spec: %s\n", spec)
+		switch identifier {
+		case 'E':
+			ctx.nsec_offset = value
 
+		case 'N':
+			if value > uint64(bitpos) {
+				return nil, fmt.Errorf("TUID spec error at: %v%v", identifier, value)
+			}
+			ctx.nsec_mask = (^uint64(0)) >> (64 - value)
+			bitpos -= uint8(value)
+			ctx.nsec_shift = bitpos
+
+		case 'C':
+			if value > uint64(bitpos) {
+				return nil, fmt.Errorf("TUID spec error at: %v%v", identifier, value)
+			}
+			ctx.counter_max = (^uint64(0)) >> (64 - value)
+			ctx.counter = ctx.counter_max /* this forces initialization */
+			bitpos -= uint8(value)
+			ctx.counter_shift = uint8(bitpos)
+
+		case 'R':
+			if value > uint64(bitpos) {
+				return nil, fmt.Errorf("TUID spec error at: %v%v", identifier, value)
+			}
+			ctx.random_mask = (^uint64(0)) >> (64 - value)
+			bitpos -= uint8(value)
+			ctx.random_shift = bitpos
+
+		case 'I':
+			ctx.id = value
+
+		default:
+			return nil, fmt.Errorf("tuid spec error at: %v%v", identifier, value)
+		}
+
+	}
+	return ctx, nil
 }
