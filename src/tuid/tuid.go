@@ -28,24 +28,24 @@ func New(spec string) (*tuidCtx, error) {
 
 	bitpos := uint8(64)
 
-	max := len(spec)
-	i := 0
+	strpos := len(spec) - 1
 
-	// this string parser is a direct translation from C which means
-	// it isn't idiomatic Go.  Undecided if I should rewrite it or
-	// keep the libraries as similar as possible ...
-	for i < max {
-		identifier := spec[i]
-		i++
-
+	for strpos >= 0 {
 		var value uint64
-		for i < max {
-			v := spec[i]
+		digit := uint64(1)
+		for strpos >= 0 {
+			v := spec[strpos]
 			if v < '0' || v > '9' {
 				break
 			}
-			i++
-			value = value*10 + uint64(v-'0')
+			value = value + (uint64(v-'0') * digit)
+			digit *= 10
+			strpos--
+		}
+		var identifier byte
+		if strpos >= 0 {
+			identifier = spec[strpos]
+			strpos--
 		}
 		// XXX: temp logging
 		fmt.Printf("Key: %v Val: %v\n", string(identifier), value)
@@ -88,8 +88,8 @@ func New(spec string) (*tuidCtx, error) {
 
 	}
 
-    // the min increment is the LSB of the nanosecond component
-    tuidGen.nsec_min_increment = ((tuidGen.nsec_mask ^ (tuidGen.nsec_mask - 1)) >> 1) + 1
+	// the min increment is the LSB of the nanosecond component
+	tuidGen.nsec_min_increment = ((tuidGen.nsec_mask ^ (tuidGen.nsec_mask - 1)) >> 1) + 1
 
 	return tuidGen, nil
 }

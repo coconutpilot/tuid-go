@@ -30,7 +30,7 @@ func Test_Gen1(t *testing.T) {
 	}
 
 	last := uint64(1) // first TUID will be 0
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 16; i++ {
 		id := tuider.Gen()
 		fmt.Printf("# TUID: %b\n", id)
 		if id == last {
@@ -50,7 +50,7 @@ func Test_Gen2(t *testing.T) {
 	}
 
 	var last uint64
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 16; i++ {
 		id := tuider.Gen()
 		fmt.Printf("# TUID: %X\n", id)
 		if id == last {
